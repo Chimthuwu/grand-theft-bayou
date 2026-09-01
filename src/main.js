@@ -17,11 +17,12 @@ const SIGN_Z = 126;          // Louisiana sign, just north (in front) of the spa
 // Every business lines the highway. [type, side(+1 = player's RIGHT / -1 = LEFT), z].
 // Player spawns at the sign facing NORTH, so +1 is east (their right).
 const LANDMARKS = [
-  ["gasstation", +1, 110],   // full-size gas station — player's RIGHT, right off the sign
-  ["sixtwelve",  -1, 104],   // 6twelve — player's LEFT
-  ["popeyes",    +1,  86],
-  ["popeyes",    -1,  80],
-  ["burgerpiz",  +1,  58],
+  ["burgerpiz",  -1, 126],   // immediate LEFT of spawn
+  ["gasstation", +1, 108],   // gas station — player's RIGHT, just past the sign
+  ["sixtwelve",  -1, 100],   // 6twelve — player's LEFT
+  ["popeyes",    +1,  84],
+  ["popeyes",    -1,  78],
+  ["burgerpiz",  +1,  56],
   ["popeyes",    -1,  52],
   ["taco",       -1,  28],
   ["popeyes",    +1,  30],
@@ -779,11 +780,10 @@ async function buildLevel() {
   buildShack(wall, doorway, windowW, roofC, 34, 88, 0.15);
 
   // ================= THE HIGHWAY STRIP — every business lines the road =========
-  const [tacoGLB, burgerGLB, gasModel] = await Promise.all([
+  const [tacoGLB, burgerGLB] = await Promise.all([
     loadGLB("./assets/models/tacos/Tacos.glb", null,
       /Taco|Grill|Shelf_S|Table|Meat|Tortilla|Board|Sauce|Onion|shepherd|Napkin|Plates|Sal|Oil/i),
     loadGLB("./assets/models/burgerpiz/BurgerPiz.glb", null, /BurgerPiz/i),
-    loadGasStation(),
   ]);
   for (const [type, side, z] of LANDMARKS) {
     const [bx] = landmarkPos(side, z);
@@ -792,8 +792,7 @@ async function buildLevel() {
     if (type === "popeyes") makePopeyes(bx, z, rot);
     else if (type === "sixtwelve") makeSixtwelve(bx, z, rot);
     else if (type === "gasstation")
-      placeGlbLandmark(gasModel, bx, z, rot, 26, "Gas", 0xfff0c8, Math.PI / 2)
-        || makeSixtwelve(bx, z, rot);
+      makeGasStation(bx, z, rot, { name: "GAS·N·GEAUX", wall: 0xdedac9, trim: 0x2b6fb0, bg: "#f2efe2", band: "#c62b23", ink: "#1d4e8c" });
     else if (type === "burgerpiz")
       placeGlbLandmark(burgerGLB, bx, z, rot, 26, "BurgerPiz", 0xff5a3c)
         || makePizzeria(bx, z, rot);
@@ -986,33 +985,35 @@ function roadApron(side, z, depth) {
 }
 
 // ---- 6twelve gas station (stylised — the 960-node FBX was too heavy) ----
-function sixtwelveSign() {
+function gasSign(name, bg, band, ink) {
   const c = document.createElement("canvas");
   c.width = 512; c.height = 256;
   const x = c.getContext("2d");
-  x.fillStyle = "#f6f2e8"; x.fillRect(0, 0, 512, 256);
-  x.fillStyle = "#1a7a3c"; x.fillRect(0, 0, 512, 40); x.fillRect(0, 216, 512, 40);
-  x.fillStyle = "#e23b2e";
+  x.fillStyle = bg; x.fillRect(0, 0, 512, 256);
+  x.fillStyle = band; x.fillRect(0, 0, 512, 40); x.fillRect(0, 216, 512, 40);
+  x.fillStyle = ink;
   x.textAlign = "center"; x.textBaseline = "middle";
-  x.font = "bold 150px Arial Black, sans-serif";
-  x.fillText("6twelve", 256, 132);
+  x.font = `bold ${name.length > 7 ? 96 : 150}px Arial Black, sans-serif`;
+  x.fillText(name, 256, 132);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   return new THREE.MeshStandardMaterial({ map: t, emissive: 0xffffff, emissiveIntensity: 0.55, emissiveMap: t });
 }
-const sixSignMat = () => sixtwelveSign();
 
-function makeSixtwelve(x, z, rot = 0) {
+const makeSixtwelve = (x, z, rot = 0) => makeGasStation(x, z, rot);
+function makeGasStation(x, z, rot = 0, o = {}) {
+  const name = o.name || "6twelve";
+  const sign = () => gasSign(name, o.bg || "#f6f2e8", o.band || "#1a7a3c", o.ink || "#e23b2e");
   const g = new THREE.Group();
   g.position.set(x, 0, z); g.rotation.y = rot;
-  const white = new THREE.MeshStandardMaterial({ color: 0xe9e6dc, roughness: 0.8 });
-  const red = new THREE.MeshStandardMaterial({ color: 0xd0342a, roughness: 0.7 });
+  const white = new THREE.MeshStandardMaterial({ color: o.wall || 0xe9e6dc, roughness: 0.8 });
+  const red = new THREE.MeshStandardMaterial({ color: o.trim || 0xd0342a, roughness: 0.7 });
 
   // shop
   const shop = new THREE.Mesh(new THREE.BoxGeometry(12, 4.6, 7), white);
   shop.position.set(0, 2.3, -4); shop.castShadow = true; shop.receiveShadow = true;
   const stripe = new THREE.Mesh(new THREE.BoxGeometry(12.2, 0.8, 7.2), red);
   stripe.position.set(0, 4.2, -4);
-  const wsign = new THREE.Mesh(new THREE.PlaneGeometry(8, 2), sixSignMat());
+  const wsign = new THREE.Mesh(new THREE.PlaneGeometry(8, 2), sign());
   wsign.position.set(0, 3, -0.4);
 
   // canopy over the pumps (toward the road, +z)
@@ -1043,7 +1044,7 @@ function makeSixtwelve(x, z, rot = 0) {
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 16),
     new THREE.MeshStandardMaterial({ color: 0x2a2a2a }));
   pole.position.set(7, 8, 13);
-  const pylon = new THREE.Mesh(new THREE.BoxGeometry(6, 3.4, 0.5), sixSignMat());
+  const pylon = new THREE.Mesh(new THREE.BoxGeometry(6, 3.4, 0.5), sign());
   pylon.position.set(7, 15, 13);
   const pylonB = pylon.clone(); pylonB.rotation.y = Math.PI; pylon.add(pylonB);
   const pl = new THREE.PointLight(0xffe6b0, 24, 26, 2);
