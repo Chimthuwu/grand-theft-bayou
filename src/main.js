@@ -667,9 +667,11 @@ const kills = { hog: 0, redneck: 0, hoodrat: 0 };
 const EMOJI = { hog: "🐗", redneck: "🧢", hoodrat: "🎧" };
 
 const ENEMY_TYPES = {
-  redneck: { label: "Redneck", kind: "sprite", atlas: "redneck", tint: 0xffd9cf,
+  // player uses the 'redneck' sheet untinted; the Redneck ENEMY gets a hard red
+  // recolour so he never reads as the player. Hoodrat is the 'oldman' sheet, cool.
+  redneck: { label: "Redneck", kind: "sprite", atlas: "redneck", tint: 0xd6402a,
              h: 2.0, hp: 5, speed: 3.9, aggro: 22, melee: 1.9, dmg: 11, atkGap: 1.1 },
-  hoodrat: { label: "Hoodrat", kind: "sprite", atlas: "oldman", tint: 0xcfdcff,
+  hoodrat: { label: "Hoodrat", kind: "sprite", atlas: "oldman", tint: 0x6d95d6,
              h: 1.95, hp: 4, speed: 4.7, aggro: 24, melee: 1.8, dmg: 8, atkGap: 0.85 },
   hog:     { label: "Feral Hog", kind: "hog", tint: 0x000000,
              h: 1.0, hp: 6, speed: 2.3, aggro: 18, melee: 1.7, dmg: 20, atkGap: 1.6 },
@@ -784,7 +786,7 @@ async function buildLevel() {
       placeGlbLandmark(burgerGLB, bx, z, rot, 26, "BurgerPiz", 0xff5a3c)
         || makePizzeria(bx, z, rot);
     else if (type === "taco")
-      placeGlbLandmark(tacoGLB, bx, z, rot, 14, "Tacos", 0xffd27a, -Math.PI / 2)
+      placeGlbLandmark(tacoGLB, bx, z, rot, 14, "Tacos", 0xffd27a, -Math.PI)
         || makePizzeria(bx, z, rot);
   }
 
