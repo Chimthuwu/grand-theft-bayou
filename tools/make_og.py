@@ -62,4 +62,5 @@ shadowed((x, 486), "Will you survive the Bayou?",  tag, "#ff5a3c")
 d.text((x, 560), "CHATHAM  ·  MONROE  ·  RUSTON", font=sub, fill="#b9c4a8")
 
 card.save(OUT)
-print("wrote", OUT, card.size)
+card.save(os.path.join(ROOT, "og2.png"))  # cache-bust copy
+print("wrote", OUT, "+ og2.png", card.size)

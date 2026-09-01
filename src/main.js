@@ -920,13 +920,40 @@ async function buildLevel() {
   }
 
   // ================= ENEMIES =================  Rednecks, Hoodrats, Feral Hogs
-  const roster = [
-    ["hog", -14, 122], ["hog", 8, 118], ["redneck", -20, 114], ["hog", 18, 108],
-    ["hoodrat", -18, 96], ["redneck", 22, 88], ["hog", -22, 74], ["hoodrat", 24, 62],
-    ["redneck", -16, 44], ["hog", 20, 26], ["hoodrat", -18, 6], ["redneck", 22, -18],
-    ["hog", -20, -40], ["redneck", 18, -60], ["hoodrat", -16, -80], ["hog", 14, -98],
-  ];
-  roster.forEach(([t, x, z]) => spawnEnemy(t, x, z));
+  // seed a starting mob down the whole highway...
+  for (let z = SPAWN_Z - 4; z > -110; z -= 8) {
+    const t = ENEMY_KINDS[(Math.random() * 3) | 0];
+    const side = Math.random() < 0.5 ? -1 : 1;
+    spawnEnemy(t, ROAD_X + side * rand(9, 26), z + rand(-3, 3));
+  }
+}
+// ...and top it back up forever, out of sight of the player.
+const ENEMY_KINDS = ["hog", "redneck", "hoodrat"];
+const ENEMY_CAP = 34;         // living enemies to maintain
+let enemyRespawnCd = 0;
+function updateEnemyPopulation(dt) {
+  const alive = enemies.filter((e) => !e.dead).length;
+  enemyRespawnCd -= dt;
+  if (enemyRespawnCd > 0 || alive >= ENEMY_CAP) return;
+  enemyRespawnCd = alive < ENEMY_CAP * 0.5 ? 0.6 : 2.0;
+
+  // spawn just off the road, ahead of and behind the player, past view distance
+  const ahead = Math.random() < 0.62;
+  const zoff = (ahead ? -1 : 1) * rand(34, 60);
+  const side = Math.random() < 0.5 ? -1 : 1;
+  let x = ROAD_X + side * rand(10, 30);
+  let z = THREE.MathUtils.clamp(playerPos.z + zoff, -WORLD + 12, WORLD - 12);
+  spawnEnemy(ENEMY_KINDS[(Math.random() * 3) | 0], x, z);
+
+  // cull enemies that wandered absurdly far, then compact the list
+  for (const e of enemies) {
+    if (!e.dead && Math.abs(e.spr.position.z - playerPos.z) > 135) {
+      scene.remove(e.spr); e.dead = "gone";
+    }
+  }
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    if (enemies[i].dead === "gone") enemies.splice(i, 1);
+  }
 }
 
 // ---- an asphalt apron linking a lot to the highway shoulder ----
@@ -1045,7 +1072,7 @@ function placeGlbLandmark(src, x, z, rot, target, label, glow, rotOffset = 0) {
 
 // 6twelve: real model if it loaded, else the stylised build
 function placeSixtwelve(model, x, z, rot) {
-  if (!placeGlbLandmark(model, x, z, rot, 22, "6twelve", 0xfff4d8, Math.PI / 2)) makeSixtwelve(x, z, rot);
+  if (!placeGlbLandmark(model, x, z, rot, 22, "6twelve", 0xfff4d8)) makeSixtwelve(x, z, rot);
 }
 
 // ---- a fenced junkyard: sheds, barrels, pallets, wrecks-to-be ----
@@ -1203,33 +1230,38 @@ function makeTorch(x, z, withLight) {
   }
 }
 
-// ---- roadside signage: "Bienvenue en Louisiane" ----
-function makeWelcomeSign(x, z, ry) {
+// ---- the "Bienvenue en Louisiane" line — straddles the road at the map's edge ----
+function makeWelcomeSign(x, z) {
   const c = document.createElement("canvas");
-  c.width = 640; c.height = 400;
+  c.width = 768; c.height = 420;
   const g = c.getContext("2d");
-  g.fillStyle = "#1f5d3a"; g.fillRect(0, 0, 640, 400);
-  g.strokeStyle = "#f4f1e4"; g.lineWidth = 12; g.strokeRect(22, 22, 596, 356);
+  g.fillStyle = "#1f5d3a"; g.fillRect(0, 0, 768, 420);
+  g.strokeStyle = "#f4f1e4"; g.lineWidth = 14; g.strokeRect(26, 26, 716, 368);
   g.fillStyle = "#f4f1e4"; g.textAlign = "center";
-  g.font = "italic 44px Georgia, serif"; g.fillText("Bienvenue en", 320, 110);
-  g.font = "bold 96px Georgia, serif"; g.fillText("LOUISIANE", 320, 210);
-  g.font = "italic 30px Georgia, serif";
-  g.fillText("Laissez les bons temps rouler !", 320, 300);
+  g.font = "italic 48px Georgia, serif"; g.fillText("Bienvenue en", 384, 116);
+  g.font = "bold 108px Georgia, serif"; g.fillText("LOUISIANE", 384, 228);
+  g.font = "italic 32px Georgia, serif";
+  g.fillText("Laissez les bons temps rouler !", 384, 320);
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+
   const grp = new THREE.Group();
-  grp.position.set(x, 0, z); grp.rotation.y = ry;
-  const panel = new THREE.Mesh(new THREE.BoxGeometry(6.4, 4, 0.3),
-    new THREE.MeshStandardMaterial({ map: tex }));
-  panel.position.y = 3.4; panel.castShadow = true;
-  const p2 = panel.clone(); p2.rotation.y = Math.PI; panel.add(p2);
-  for (const px of [-2.5, 2.5]) {
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 3.4),
-      new THREE.MeshStandardMaterial({ color: 0x5a4632 }));
-    post.position.set(px, 1.7, 0); grp.add(post);
-  }
+  grp.position.set(x, 0, z);
+  // BoxGeometry already textures front + back — one panel, no z-fighting clone
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(11, 6, 0.4),
+    new THREE.MeshStandardMaterial({ map: tex, emissive: 0x0e3320, emissiveIntensity: 0.25, emissiveMap: tex }));
+  panel.position.y = 6.5; panel.castShadow = true;
   grp.add(panel);
+  for (const px of [-5, 5]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 7, 6),
+      new THREE.MeshStandardMaterial({ color: 0x5a4632, roughness: 1 }));
+    post.position.set(px, 3.5, 0); post.castShadow = true;
+    grp.add(post);
+    addBlocker(x + px, z, 0.5);
+  }
+  const sl = new THREE.PointLight(0xcfeecb, 20, 26, 2);
+  sl.position.set(x, 8, z + 3);
+  scene.add(sl);
   scene.add(grp);
-  addBlocker(x, z, 1);
 }
 
 // ---- water tower with the town name (CHATHAM / MONROE / RUSTON) ----
@@ -1571,6 +1603,7 @@ function simulate(dt) {
   if (state.cans >= CAN_GOAL && playerPos.distanceTo(truckPos) < 4.2) win();
 
   // ---- enemies ----
+  updateEnemyPopulation(dt);
   for (const e of enemies) {
     updateEnemy(e, dt);
     if (e.spr.update) e.spr.update(dt, camera);
