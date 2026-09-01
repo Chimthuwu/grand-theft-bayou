@@ -14,17 +14,17 @@ const TRUCK_Z = -116;
 const SPAWN_Z = 120;         // bottom of the map, just past the Louisiana sign
 const SIGN_Z = 126;
 
-// Every business lines the highway. [type, side(+1 east / -1 west), z].
-// The player DRIVES PAST all of these. Popeyes everywhere — it's Louisiana.
+// Every business lines the highway. [type, side(+1 = player's RIGHT / -1 = LEFT), z].
+// Player spawns at the sign facing NORTH, so +1 is east (their right).
 const LANDMARKS = [
-  ["sixtwelve",  +1, 108],   // 6twelve, first thing you see leaving the sign
-  ["popeyes",    -1,  98],
-  ["popeyes",    +1,  80],
-  ["gasstation", -1,  74],   // the full-size gas station
-  ["burgerpiz",  +1,  56],
-  ["popeyes",    -1,  50],
+  ["gasstation", +1, 110],   // full-size gas station — player's RIGHT, right off the sign
+  ["sixtwelve",  -1, 104],   // 6twelve — player's LEFT
+  ["popeyes",    +1,  86],
+  ["popeyes",    -1,  80],
+  ["burgerpiz",  +1,  58],
+  ["popeyes",    -1,  52],
+  ["taco",       -1,  28],
   ["popeyes",    +1,  30],
-  ["taco",       -1,  24],
   ["popeyes",    +1,   6],
   ["popeyes",    -1, -14],
   ["popeyes",    +1, -34],
@@ -756,7 +756,8 @@ async function buildLevel() {
   // ================= CHATHAM (south) — the Louisiana line, trailer park =======
   // "Bienvenue en Louisiane" straddles the road at the very bottom; you spawn
   // just past it, nose pointed north up US-167.
-  makeWelcomeSign(ROAD_X, SIGN_Z, 0);
+  // on the LEFT shoulder as you spawn, angled to face oncoming traffic
+  makeWelcomeSign(ROAD_X - ROAD_HALF - 5, SIGN_Z - 2, -0.5);
   makeWaterTower(-58, SPAWN_Z + 6, "CHATHAM");
   makeTrailerPark(-48, 116);
   makeJunkyard(48, 100);
@@ -1230,8 +1231,8 @@ function makeTorch(x, z, withLight) {
   }
 }
 
-// ---- the "Bienvenue en Louisiane" line — straddles the road at the map's edge ----
-function makeWelcomeSign(x, z) {
+// ---- the "Bienvenue en Louisiane" sign — planted on the shoulder, angled to the road ----
+function makeWelcomeSign(x, z, ry = 0) {
   const c = document.createElement("canvas");
   c.width = 768; c.height = 420;
   const g = c.getContext("2d");
@@ -1246,20 +1247,21 @@ function makeWelcomeSign(x, z) {
 
   const grp = new THREE.Group();
   grp.position.set(x, 0, z);
+  grp.rotation.y = ry;
   // BoxGeometry already textures front + back — one panel, no z-fighting clone
-  const panel = new THREE.Mesh(new THREE.BoxGeometry(11, 6, 0.4),
-    new THREE.MeshStandardMaterial({ map: tex, emissive: 0x0e3320, emissiveIntensity: 0.25, emissiveMap: tex }));
-  panel.position.y = 6.5; panel.castShadow = true;
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(7, 3.8, 0.35),
+    new THREE.MeshStandardMaterial({ map: tex, emissive: 0x0e3320, emissiveIntensity: 0.3, emissiveMap: tex }));
+  panel.position.y = 4; panel.castShadow = true;
   grp.add(panel);
-  for (const px of [-5, 5]) {
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 7, 6),
+  for (const px of [-3, 3]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 4.4, 6),
       new THREE.MeshStandardMaterial({ color: 0x5a4632, roughness: 1 }));
-    post.position.set(px, 3.5, 0); post.castShadow = true;
+    post.position.set(px, 2.2, 0); post.castShadow = true;
     grp.add(post);
-    addBlocker(x + px, z, 0.5);
   }
-  const sl = new THREE.PointLight(0xcfeecb, 20, 26, 2);
-  sl.position.set(x, 8, z + 3);
+  addBlocker(x, z, 2);
+  const sl = new THREE.PointLight(0xcfeecb, 16, 20, 2);
+  sl.position.set(x, 5, z);
   scene.add(sl);
   scene.add(grp);
 }
