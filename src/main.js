@@ -5,14 +5,14 @@ import { loadAtlas, AnimatedSprite } from "./sprite.js";
 
 // ---------------------------------------------------------------- config
 // North Louisiana, US-167: Chatham (south) -> Monroe strip (middle) -> Ruston (north).
-const WORLD = 130;           // half-size of the map
+const WORLD = 136;           // half-size of the map
 const CAN_GOAL = 4;
 const ROAD_X = -6;           // the highway runs N/S along this line
 const ROAD_HALF = 5;         // half road width
 const LOT_X = 24;            // how far off the centre line a lot's building sits
 const TRUCK_Z = -116;
-const SPAWN_Z = 120;         // bottom of the map, just past the Louisiana sign
-const SIGN_Z = 126;
+const SPAWN_Z = 130;         // bottom of the map
+const SIGN_Z = 126;          // Louisiana sign, just north (in front) of the spawn
 
 // Every business lines the highway. [type, side(+1 = player's RIGHT / -1 = LEFT), z].
 // Player spawns at the sign facing NORTH, so +1 is east (their right).
@@ -772,8 +772,8 @@ async function buildLevel() {
   // "Bienvenue en Louisiane" straddles the road at the very bottom; you spawn
   // just past it, nose pointed north up US-167.
   // player's RIGHT shoulder, just before the gas station, facing oncoming traffic
-  makeWelcomeSign(ROAD_X + ROAD_HALF + 3.5, 116, -0.35);
-  makeWaterTower(-58, SPAWN_Z + 6, "CHATHAM");
+  makeWelcomeSign(ROAD_X + ROAD_HALF + 3.5, SIGN_Z, -0.35);
+  makeWaterTower(-58, SPAWN_Z - 2, "CHATHAM");
   makeTrailerPark(-48, 116);
   makeJunkyard(48, 100);
   buildShack(wall, doorway, windowW, roofC, 34, 88, 0.15);
@@ -817,9 +817,9 @@ async function buildLevel() {
     scene.add(gl);
   }
   // a few torches + shrooms only right around the spawn so it reads "bayou"
-  makeTorch(ROAD_X - ROAD_HALF - 1.5, SPAWN_Z + 6, true);
-  makeTorch(ROAD_X + ROAD_HALF + 1.5, SPAWN_Z - 2, true);
-  makeTorch(ROAD_X - ROAD_HALF - 1.5, SPAWN_Z - 12, true);
+  makeTorch(ROAD_X - ROAD_HALF - 1.5, SPAWN_Z - 3, true);
+  makeTorch(ROAD_X + ROAD_HALF + 1.5, SPAWN_Z - 10, true);
+  makeTorch(ROAD_X - ROAD_HALF - 1.5, SPAWN_Z - 20, true);
   for (let i = 0; i < 10; i++) {
     const x = rand(-WORLD + 24, WORLD - 24), z = rand(60, WORLD - 24);
     if (!inKeepout(x, z)) makeShroom(x, z);
