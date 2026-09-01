@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Grand Theft Bayou</title>
+<style>
+  :root { color-scheme: dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #05070a; }
+  body { font-family: "Arial Black", "Arial", system-ui, sans-serif; color: #f2efe6; }
+  canvas { display: block; }
+
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; user-select: none; }
+  #hud .panel {
+    position: absolute; top: 14px; left: 14px; width: 240px;
+    background: rgba(6, 10, 8, 0.5); border: 1px solid rgba(160, 190, 150, 0.22);
+    border-radius: 8px; padding: 10px 12px; backdrop-filter: blur(2px);
+  }
+  .bar { height: 11px; border-radius: 6px; background: rgba(255,255,255,0.12); overflow: hidden; margin: 4px 0 8px; }
+  .bar > i { display: block; height: 100%; width: 100%; transition: width .12s linear; }
+  #hpFill { background: linear-gradient(90deg, #c0392b, #e74c3c); }
+  #spFill { background: linear-gradient(90deg, #2e86c1, #5dade2); }
+  .lbl { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; opacity: .75; font-family: Arial, sans-serif; }
+  #cash {
+    position: absolute; top: 14px; right: 16px; text-align: right;
+    font-size: 30px; color: #6fe07a; text-shadow: 0 2px 0 #14351a, 0 0 16px rgba(90,220,120,.35);
+  }
+  #stars { position: absolute; top: 54px; right: 16px; font-size: 22px; letter-spacing: 3px; filter: drop-shadow(0 2px 2px #000); }
+  #stars .off { opacity: .18; }
+  #cans { font-size: 20px; font-weight: bold; }
+  #cans small { font-size: 12px; opacity: .7; font-weight: normal; }
+  #vehIndic {
+    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: rgba(6,10,8,.6); border: 1px solid rgba(160,190,150,.25);
+    border-radius: 999px; padding: 7px 18px; font-size: 13px; font-family: Arial, sans-serif;
+    letter-spacing: .05em;
+  }
+  #objective {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    background: rgba(6,10,8,.6); border: 1px solid rgba(160,190,150,.25);
+    border-radius: 8px; padding: 8px 16px; font-size: 13px; text-align: center;
+    white-space: nowrap; font-family: Arial, sans-serif; max-width: 92vw; overflow: hidden;
+  }
+
+  #overlay {
+    position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px; text-align: center;
+    background: #05070a url("./assets/cover.png") center/cover no-repeat;
+    padding: 22px;
+  }
+  #overlay::before {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(4,6,4,.35) 0%, rgba(4,6,4,.5) 45%, rgba(4,6,4,.92) 100%);
+  }
+  #overlay > * { position: relative; z-index: 1; }
+  #coverArt {
+    max-height: 46vh; width: auto; border-radius: 8px;
+    box-shadow: 0 12px 50px rgba(0,0,0,.7); border: 2px solid rgba(0,0,0,.5);
+  }
+  #overlay h1 { display: none; }
+  #overlay h1.end {
+    display: block; font-size: clamp(30px, 7vw, 64px); line-height: .95;
+    color: #f4f0e2; text-shadow: 0 3px 0 #101c10, 0 0 34px rgba(120,200,120,.4); text-transform: lowercase;
+  }
+  #overlay h1 b { color: #e8a13a; font-style: italic; text-transform: none; display: block; font-size: .5em; margin-top: 6px; }
+  #overlay p { max-width: 640px; line-height: 1.55; opacity: .95; font-size: 13.5px; font-family: Arial, sans-serif;
+    background: rgba(4,6,4,.55); padding: 10px 16px; border-radius: 8px; }
+  #overlay .keys { font-size: 12px; opacity: .8; font-family: Arial, sans-serif; }
+  #overlay .keys b { color: #cfe8bf; }
+  #overlay button {
+    pointer-events: auto; cursor: pointer; font-family: "Arial Black", Arial, sans-serif;
+    font-size: 17px; padding: 13px 30px; border-radius: 6px; border: 2px solid #e8a13a;
+    background: linear-gradient(180deg, #4a7a3a, #2c4f24); color: #f6fbe8; letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  #overlay button:hover { filter: brightness(1.12); }
+  #overlay.hidden { display: none; }
+  #loadNote { font-size: 12px; opacity: .6; font-family: Arial, sans-serif; }
+  #mute {
+    position: fixed; bottom: 14px; right: 14px; z-index: 15; pointer-events: auto; cursor: pointer;
+    background: rgba(6,10,8,.6); border: 1px solid rgba(160,190,150,.25); color: #f2efe6;
+    border-radius: 8px; padding: 6px 10px; font-size: 15px; font-family: Arial, sans-serif;
+  }
+  #crosshair { position: fixed; left: 50%; top: 56%; width: 5px; height: 5px; margin: -2.5px;
+    background: rgba(255,240,200,.75); border-radius: 50%; z-index: 9; pointer-events: none; display: none; }
+  .flash { animation: fl .4s ease-out; }
+  @keyframes fl { from { background: rgba(200,40,30,.4); } to { background: transparent; } }
+  .wasted {
+    position: fixed; inset: 0; z-index: 19; display: flex; align-items: center; justify-content: center;
+    font-size: clamp(48px, 12vw, 130px); color: #b8202a; font-style: italic;
+    background: rgba(0,0,0,.5); text-shadow: 0 0 40px #000; pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div class="panel">
+    <div class="lbl">Health</div><div class="bar"><i id="hpFill"></i></div>
+    <div class="lbl">Stamina</div><div class="bar"><i id="spFill"></i></div>
+    <div class="lbl">Gas cans</div>
+    <div id="cans">0 <small>/ 4</small></div>
+  </div>
+  <div id="cash">$0</div>
+  <div id="stars"></div>
+  <div id="objective">Steal a ride. Scrounge 4 gas cans. Get to the truck and leave the parish.</div>
+  <div id="vehIndic" hidden></div>
+</div>
+<div id="crosshair"></div>
+<div id="mute" title="mute music (M)">♪</div>
+
+<div id="overlay">
+  <img id="coverArt" src="./assets/cover.png" alt="Grand Theft Bayou: Louisiana Stories" />
+  <h1></h1>
+  <p>Chatham to Monroe to Ruston &mdash; you owe money up and down US&nbsp;167 and
+     every <b>Feral Hog</b>, <b>Redneck</b> and <b>Hoodrat</b> in the piney woods
+     wants a piece. <b>Jack a car</b>, rob <b>4 gas cans</b> off the wrecks and the
+     strip malls, and get to the <b>truck</b> past the Ruston line.</p>
+  <p class="keys"><b>WASD</b> drive / walk &nbsp;·&nbsp; <b>F</b> jack &amp; exit vehicle &nbsp;·&nbsp;
+     <b>Shift</b> sprint / handbrake &nbsp;·&nbsp; <b>Space / Click</b> shoot &nbsp;·&nbsp;
+     <b>Q / E</b> or <b>right-drag</b> camera &nbsp;·&nbsp; <b>M</b> music</p>
+  <button id="startBtn">Start the story</button>
+  <div id="loadNote">loading assets…</div>
+</div>
+
+<audio id="music" src="./assets/audio/theme.mp3" loop preload="auto"></audio>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

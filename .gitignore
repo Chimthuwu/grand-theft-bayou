@@ -1,0 +1,22 @@
+# source asset archives (huge, redistributable-license varies — keep local only)
+*.rar
+*.zip
+*.7z
+*.unitypackage
+_extracted/
+
+# blender source files
+*.blend
+*.blend1
+
+# tooling / editor
+.claude/
+node_modules/
+*.log
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# scratch
+/tmp/
+scratchpad/
