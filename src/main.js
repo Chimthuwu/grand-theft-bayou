@@ -45,7 +45,8 @@ const KEEPOUT = [
 ];
 function inKeepout(x, z) {
   if (Math.abs(x - ROAD_X) < ROAD_HALF + 4) return true;         // road corridor
-  if (Math.abs(x - ROAD_X) < LOT_X + 12 && z < 122) return true; // the strip frontage
+  if (Math.abs(x - ROAD_X) < LOT_X + 14) return true;            // the whole strip frontage
+  if (Math.hypot(x - ROAD_X, z - SPAWN_Z) < 24) return true;     // clear the spawn + sign
   if (z < -50) return true;                                      // Ruston
   return KEEPOUT.some((k) => Math.hypot(x - k.x, z - k.z) < k.r);
 }
@@ -337,10 +338,21 @@ function loadDsCar(name) {
 }
 
 // --- generic FBX-with-sidecar-textures loader (6twelve gas station, etc.) ---
-function loadFbxScene(fbxPath, texDir, targetSize) {
+// cullRe drops scene-dressing meshes (ground / parking lot / backdrop) so the
+// building isn't shrunk to nothing when its footprint is normalised.
+function loadFbxScene(fbxPath, texDir, targetSize, cullRe) {
   return new Promise((res) => {
     fbxLoader.setResourcePath(texDir);
     fbxLoader.load(fbxPath, (obj) => {
+      if (cullRe) {
+        const doomed = [];
+        obj.traverse((o) => {
+          if (o.isMesh && (cullRe.test(o.name || "") ||
+              (Array.isArray(o.material) ? o.material : [o.material]).some((m) => m && cullRe.test(m.name || ""))))
+            doomed.push(o);
+        });
+        doomed.forEach((m) => m.parent && m.parent.remove(m));
+      }
       const size = new THREE.Box3().setFromObject(obj).getSize(new THREE.Vector3());
       if (targetSize) obj.scale.setScalar(targetSize / Math.max(size.x, size.z));
       obj.traverse((o) => {
@@ -366,10 +378,11 @@ function loadFbxScene(fbxPath, texDir, targetSize) {
     }, undefined, (e) => { console.warn("FBX fail", fbxPath, e); fbxLoader.setResourcePath(""); res(null); });
   });
 }
+const SITE_CLUTTER = /ground|asphalt|parking|road|street|sidewalk|pavement|background|backdrop|terrain|grass|bush|plant|tree|fence|curb|soil|sand|dirt/i;
 const loadSixtwelve = () =>
-  loadFbxScene("./assets/models/sixtwelve/6twelve.fbx", "./assets/models/sixtwelve/Textures/", 24);
+  loadFbxScene("./assets/models/sixtwelve/6twelve.fbx", "./assets/models/sixtwelve/Textures/", 22, SITE_CLUTTER);
 const loadGasStation = () =>
-  loadFbxScene("./assets/models/gasstation/Gas_station.fbx", "./assets/models/gasstation/Textures/", 26);
+  loadFbxScene("./assets/models/gasstation/Gas_station.fbx", "./assets/models/gasstation/Textures/", 24, SITE_CLUTTER);
 
 // --- shack / shed / junk decor from the "Shacks Shanties Sheds" texture pack ---
 const shackTex = {};
@@ -758,19 +771,18 @@ async function buildLevel() {
   // ================= CHATHAM (south) — the Louisiana line, trailer park =======
   // "Bienvenue en Louisiane" straddles the road at the very bottom; you spawn
   // just past it, nose pointed north up US-167.
-  // on the LEFT shoulder as you spawn, angled to face oncoming traffic
-  makeWelcomeSign(ROAD_X - ROAD_HALF - 5, SIGN_Z - 2, -0.5);
+  // player's RIGHT shoulder, just before the gas station, facing oncoming traffic
+  makeWelcomeSign(ROAD_X + ROAD_HALF + 3.5, 116, -0.35);
   makeWaterTower(-58, SPAWN_Z + 6, "CHATHAM");
   makeTrailerPark(-48, 116);
   makeJunkyard(48, 100);
   buildShack(wall, doorway, windowW, roofC, 34, 88, 0.15);
 
   // ================= THE HIGHWAY STRIP — every business lines the road =========
-  const [tacoGLB, burgerGLB, sixtwelveModel, gasModel] = await Promise.all([
+  const [tacoGLB, burgerGLB, gasModel] = await Promise.all([
     loadGLB("./assets/models/tacos/Tacos.glb", null,
       /Taco|Grill|Shelf_S|Table|Meat|Tortilla|Board|Sauce|Onion|shepherd|Napkin|Plates|Sal|Oil/i),
     loadGLB("./assets/models/burgerpiz/BurgerPiz.glb", null, /BurgerPiz/i),
-    loadSixtwelve(),
     loadGasStation(),
   ]);
   for (const [type, side, z] of LANDMARKS) {
@@ -778,7 +790,7 @@ async function buildLevel() {
     const rot = -side * Math.PI / 2;         // front (+z local) faces the road
     roadApron(side, z, 20);                  // asphalt linking lot -> highway
     if (type === "popeyes") makePopeyes(bx, z, rot);
-    else if (type === "sixtwelve") placeSixtwelve(sixtwelveModel, bx, z, rot);
+    else if (type === "sixtwelve") makeSixtwelve(bx, z, rot);
     else if (type === "gasstation")
       placeGlbLandmark(gasModel, bx, z, rot, 26, "Gas", 0xfff0c8, Math.PI / 2)
         || makeSixtwelve(bx, z, rot);
@@ -1073,10 +1085,6 @@ function placeGlbLandmark(src, x, z, rot, target, label, glow, rotOffset = 0) {
   return true;
 }
 
-// 6twelve: real model if it loaded, else the stylised build
-function placeSixtwelve(model, x, z, rot) {
-  if (!placeGlbLandmark(model, x, z, rot, 22, "6twelve", 0xfff4d8)) makeSixtwelve(x, z, rot);
-}
 
 // ---- a fenced junkyard: sheds, barrels, pallets, wrecks-to-be ----
 function makeJunkyard(cx, cz) {
