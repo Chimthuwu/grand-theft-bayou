@@ -1,0 +1,5 @@
+{
+  // Cloudflare Pages: this is a plain static site — serve the repo root as-is.
+  "name": "grand-theft-bayou",
+  "pages_build_output_dir": "."
+}
