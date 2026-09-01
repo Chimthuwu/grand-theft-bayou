@@ -10,25 +10,27 @@ const CAN_GOAL = 4;
 const ROAD_X = -6;           // the highway runs N/S along this line
 const ROAD_HALF = 5;         // half road width
 const LOT_X = 24;            // how far off the centre line a lot's building sits
-const TRUCK_Z = -114;
-const SPAWN_Z = 104;
+const TRUCK_Z = -116;
+const SPAWN_Z = 120;         // bottom of the map, just past the Louisiana sign
+const SIGN_Z = 126;
 
 // Every business lines the highway. [type, side(+1 east / -1 west), z].
 // The player DRIVES PAST all of these. Popeyes everywhere — it's Louisiana.
 const LANDMARKS = [
-  ["popeyes",   -1, 116],
-  ["sixtwelve", +1, 100],   // 6twelve gas station, right at the spawn
-  ["popeyes",   -1,  84],
-  ["burgerpiz", +1,  64],
-  ["popeyes",   -1,  46],
-  ["popeyes",   +1,  28],
-  ["taco",      -1,  10],
-  ["popeyes",   +1,  -8],
-  ["popeyes",   -1, -26],
-  ["popeyes",   +1, -44],
-  ["popeyes",   -1, -62],
-  ["popeyes",   +1, -80],
-  ["popeyes",   -1, -96],
+  ["sixtwelve",  +1, 108],   // 6twelve, first thing you see leaving the sign
+  ["popeyes",    -1,  98],
+  ["popeyes",    +1,  80],
+  ["gasstation", -1,  74],   // the full-size gas station
+  ["burgerpiz",  +1,  56],
+  ["popeyes",    -1,  50],
+  ["popeyes",    +1,  30],
+  ["taco",       -1,  24],
+  ["popeyes",    +1,   6],
+  ["popeyes",    -1, -14],
+  ["popeyes",    +1, -34],
+  ["popeyes",    -1, -54],
+  ["popeyes",    +1, -74],
+  ["popeyes",    -1, -94],
 ];
 const landmarkPos = (side, z) => [ROAD_X + side * LOT_X, z];
 
@@ -366,6 +368,8 @@ function loadFbxScene(fbxPath, texDir, targetSize) {
 }
 const loadSixtwelve = () =>
   loadFbxScene("./assets/models/sixtwelve/6twelve.fbx", "./assets/models/sixtwelve/Textures/", 24);
+const loadGasStation = () =>
+  loadFbxScene("./assets/models/gasstation/Gas_station.fbx", "./assets/models/gasstation/Textures/", 26);
 
 // --- shack / shed / junk decor from the "Shacks Shanties Sheds" texture pack ---
 const shackTex = {};
@@ -749,19 +753,22 @@ async function buildLevel() {
 
   initShackTex();
 
-  // ================= CHATHAM (south) — spawn, trailer park, junkyard ==========
-  makeWelcomeSign(ROAD_X + 9, SPAWN_Z + 16, -0.5);
-  makeWaterTower(-58, SPAWN_Z + 4, "CHATHAM");
-  makeTrailerPark(-46, 112);
-  makeJunkyard(46, 92);
-  buildShack(wall, doorway, windowW, roofC, 30, 70, 0.15);
+  // ================= CHATHAM (south) — the Louisiana line, trailer park =======
+  // "Bienvenue en Louisiane" straddles the road at the very bottom; you spawn
+  // just past it, nose pointed north up US-167.
+  makeWelcomeSign(ROAD_X, SIGN_Z, 0);
+  makeWaterTower(-58, SPAWN_Z + 6, "CHATHAM");
+  makeTrailerPark(-48, 116);
+  makeJunkyard(48, 100);
+  buildShack(wall, doorway, windowW, roofC, 34, 88, 0.15);
 
   // ================= THE HIGHWAY STRIP — every business lines the road =========
-  const [tacoGLB, burgerGLB, sixtwelveModel] = await Promise.all([
+  const [tacoGLB, burgerGLB, sixtwelveModel, gasModel] = await Promise.all([
     loadGLB("./assets/models/tacos/Tacos.glb", null,
       /Taco|Grill|Shelf_S|Table|Meat|Tortilla|Board|Sauce|Onion|shepherd|Napkin|Plates|Sal|Oil/i),
     loadGLB("./assets/models/burgerpiz/BurgerPiz.glb", null, /BurgerPiz/i),
     loadSixtwelve(),
+    loadGasStation(),
   ]);
   for (const [type, side, z] of LANDMARKS) {
     const [bx] = landmarkPos(side, z);
@@ -769,8 +776,15 @@ async function buildLevel() {
     roadApron(side, z, 20);                  // asphalt linking lot -> highway
     if (type === "popeyes") makePopeyes(bx, z, rot);
     else if (type === "sixtwelve") placeSixtwelve(sixtwelveModel, bx, z, rot);
-    else if (type === "burgerpiz") placeGlbLandmark(burgerGLB, bx, z, rot, 26, "BurgerPiz", 0xff5a3c);
-    else if (type === "taco") placeTaco(tacoGLB, bx, z, rot);
+    else if (type === "gasstation")
+      placeGlbLandmark(gasModel, bx, z, rot, 26, "Gas", 0xfff0c8, Math.PI / 2)
+        || makeSixtwelve(bx, z, rot);
+    else if (type === "burgerpiz")
+      placeGlbLandmark(burgerGLB, bx, z, rot, 26, "BurgerPiz", 0xff5a3c)
+        || makePizzeria(bx, z, rot);
+    else if (type === "taco")
+      placeGlbLandmark(tacoGLB, bx, z, rot, 14, "Tacos", 0xffd27a, -Math.PI / 2)
+        || makePizzeria(bx, z, rot);
   }
 
   // streetlamps + one warm glow for the whole strip
@@ -1002,17 +1016,13 @@ function makeSixtwelve(x, z, rot = 0) {
   }
 }
 
-// ---- taco stand from Tacos.glb, faced toward the road ----
-function placeTaco(src, x, z, rot) {
-  if (!src) { makePizzeria(x, z, rot); return; }
-  placeGlbLandmark(src, x, z, rot, 14, "Tacos", 0xffd27a);
-}
-
-// place a GLB scene as a roadside landmark, recentred on (x,z)
-function placeGlbLandmark(src, x, z, rot, target, label, glow) {
-  if (!src) { makePopeyes(x, z, rot); return; }
+// place a GLB/FBX scene as a roadside landmark, recentred on (x,z).
+// rotOffset corrects models whose "front" isn't local +z.  returns true on success.
+function placeGlbLandmark(src, x, z, rot, target, label, glow, rotOffset = 0) {
+  if (!src) return false;
   const inner = new THREE.Group();
   inner.add(src.clone(true));
+  inner.rotation.y = rotOffset;
   let b = new THREE.Box3().setFromObject(inner);
   const sz = b.getSize(new THREE.Vector3());
   const s = target / Math.max(sz.x, sz.z, 1);
@@ -1030,12 +1040,12 @@ function placeGlbLandmark(src, x, z, rot, target, label, glow) {
   l.position.set(x, 6, z);
   scene.add(l);
   parkedCarSpots.push({ x, z, rot });
+  return true;
 }
 
-// 6twelve: use the real model if it loaded, else the stylised build
+// 6twelve: real model if it loaded, else the stylised build
 function placeSixtwelve(model, x, z, rot) {
-  if (!model) { makeSixtwelve(x, z, rot); return; }
-  placeGlbLandmark(model, x, z, rot, 22, "6twelve", 0xfff4d8);
+  if (!placeGlbLandmark(model, x, z, rot, 22, "6twelve", 0xfff4d8, Math.PI / 2)) makeSixtwelve(x, z, rot);
 }
 
 // ---- a fenced junkyard: sheds, barrels, pallets, wrecks-to-be ----
