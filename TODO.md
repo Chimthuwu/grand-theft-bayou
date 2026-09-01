@@ -87,6 +87,17 @@ Controls: **WASD** drive/walk · **F** jack & exit vehicle (also enter truck) ·
 - [ ] Radio stations / more tracks.
 - [ ] Pedestrian AI (walk, flee, get in cars).
 
+## Web / deploy
+
+- **Landing page**: `index.html` at repo root (GTA-styled, links to `./game/`).
+- **Discord unfurl**: `og.png` (1200×630, `tools/make_og.py`). OG/twitter meta in
+  `index.html` — URLs hardcoded to `https://grand-theft-bayou.pages.dev/`. **If the
+  Cloudflare Pages project name isn't `grand-theft-bayou`, fix those 4 `og:*` /
+  `twitter:*` URLs.**
+- **Cloudflare Pages**: `wrangler.jsonc` sets `pages_build_output_dir = "."`;
+  `package.json` has a no-op `build` script so the dashboard's `npm run build` passes.
+  Static site — no framework, Three.js from CDN.
+
 ## Open questions
 - Cops: how weak? (spawn distance, count, give-up timer)
 - Map scale feel OK, or tighten the three towns closer together?
